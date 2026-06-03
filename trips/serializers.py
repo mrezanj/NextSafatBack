@@ -5,10 +5,17 @@ from rest_framework import serializers
 from companies.models import Company, Bus
 
 
+class CitySerializer(ModelSerializer):
+    class Meta:
+        model = City
+        fields = ["id", "name", "slug"]
+
+
 class TripSerializer(ModelSerializer):
     available_seats = serializers.SerializerMethodField()
     bus_type = serializers.CharField(source="bus.type", read_only=True)
-    company = PrimaryKeyRelatedField(queryset=Company.objects.all())
+    company_name = serializers.CharField(source="company.name", read_only=True)
+    company = PrimaryKeyRelatedField(read_only=True)
     bus = PrimaryKeyRelatedField(queryset=Bus.objects.all())
     origin_city = PrimaryKeyRelatedField(queryset=City.objects.all())
     destination_city = PrimaryKeyRelatedField(queryset=City.objects.all())
@@ -31,6 +38,7 @@ class TripSerializer(ModelSerializer):
             "price",
             "status",
             "company",
+            "company_name",
             "bus_type",
             "available_seats",
         ]

@@ -27,9 +27,9 @@ def is_valid_seat(trip_id: int, selected_seat_id: int) -> bool:
 class BookingSerializer(ModelSerializer):
     seat_ids = serializers.ListField(write_only=True, child=serializers.IntegerField())
     passengers = serializers.ListField(write_only=True)
-    trip = serializers.PrimaryKeyRelatedField(
-        source="trip", queryset=Trip.objects.all(), write_only=True
-    )
+    trip = serializers.PrimaryKeyRelatedField(queryset=Trip.objects.all())
+    trip_details = serializers.SerializerMethodField()
+    passenger_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -40,6 +40,8 @@ class BookingSerializer(ModelSerializer):
             "status",
             "total_price",
             "trip",
+            "trip_details",
+            "passenger_count",
             "seat_ids",
             "passengers",
         ]
@@ -51,6 +53,21 @@ class BookingSerializer(ModelSerializer):
             "status": {"read_only": True},
         }
 
+    def get_trip_details(self, obj):
+        trip = obj.trip
+
+        return {
+            "id": trip.id,
+            "origin_city": trip.origin_city.name,
+            "destination_city": trip.destination_city.name,
+            "departure": trip.departure,
+            "arrival": trip.arrival,
+            "price": trip.price,
+        }
+
+    def get_passenger_count(self, obj):
+        return obj.passengers.count()
+
     def validate(self, attrs):
         trip = attrs.get("trip")
         seat_ids = attrs.get("seat_ids", [])
@@ -60,6 +77,8 @@ class BookingSerializer(ModelSerializer):
             raise serializers.ValidationError(
                 "Number of seats must match number of passengers"
             )
+        if len(seat_ids) != len(set(seat_ids)):
+            raise serializers.ValidationError({"seat_ids": "Duplicate seats selected"})
         for seat_id in seat_ids:
             if not is_valid_seat(trip.id, seat_id):
                 raise serializers.ValidationError(
@@ -92,7 +111,7 @@ class BookingSerializer(ModelSerializer):
         seat_ids: list = validated_data.pop("seat_ids")
         try:
             seats = Seat.objects.filter(
-                id__in=seat_ids, bus__trip=trip
+                id__in=seat_ids, bus=trip.bus
             ).select_for_update(nowait=True)
         except DatabaseError:
             raise serializers.ValidationError(
@@ -106,14 +125,17 @@ class BookingSerializer(ModelSerializer):
                 }
             )
 
-        for seat in seats:
+        seats_by_id = {seat.id: seat for seat in seats}
+        selected_seats = [seats_by_id[seat_id] for seat_id in seat_ids]
+
+        for seat in selected_seats:
             if not is_valid_seat(trip.id, seat.id):
                 raise serializers.ValidationError(
                     {"seat_ids": f"Seat {seat.id} is not available"}
                 )
 
         booking: Booking = Booking.objects.create(user=user, trip=trip)
-        for passenger, seat in zip(passengers, seats):
+        for passenger, seat in zip(passengers, selected_seats):
             Passenger.objects.create(
                 booking=booking,
                 trip=trip,
