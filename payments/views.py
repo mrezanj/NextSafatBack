@@ -4,16 +4,17 @@ from .serializers import PaymentSerializer
 from .models import Payment
 from bookings.models import Booking
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication  # type: ignore
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from utils.permissions import IsUser
 
 
 class PaymentViewset(CreateModelMixin, GenericViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsUser]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

@@ -5,4 +5,6 @@ urlpatterns = [
     path("", include("companies.urls")),
     path("", include("bookings.urls")),
     path("", include("trips.urls")),
+    path("", include("payments.urls")),
+    path("", include("tickets.urls")),
 ]

@@ -3,15 +3,16 @@ from .models import Trip, City
 from django.db.models import Count
 from rest_framework import serializers
 from companies.models import Company, Bus
+from bookings.models import Booking
 
 
 class TripSerializer(ModelSerializer):
-    available_seats = serializers.SerializerMethodField()
-    bus_type = serializers.CharField(source="bus.type", read_only=True)
-    company = PrimaryKeyRelatedField(queryset=Company.objects.all())
+    company = PrimaryKeyRelatedField(read_only=True)
     bus = PrimaryKeyRelatedField(queryset=Bus.objects.all())
     origin_city = PrimaryKeyRelatedField(queryset=City.objects.all())
     destination_city = PrimaryKeyRelatedField(queryset=City.objects.all())
+    available_seats = serializers.SerializerMethodField()
+    bus_type = serializers.CharField(source="bus.type", read_only=True)
     origin_city_name = serializers.CharField(source="origin_city.name", read_only=True)
     destination_city_name = serializers.CharField(
         source="destination_city.name", read_only=True
@@ -21,25 +22,30 @@ class TripSerializer(ModelSerializer):
         model = Trip
         fields = [
             "id",
+            "company",
             "bus",
             "origin_city",
-            "origin_city_name",
             "destination_city",
-            "destination_city_name",
             "departure",
             "arrival",
             "price",
             "status",
-            "company",
-            "bus_type",
             "available_seats",
+            "bus_type",
+            "origin_city_name",
+            "destination_city_name",
         ]
 
     def get_available_seats(self, obj):
         reserved_seats = (
-            obj.bookings.filter(status="paid").aggregate(total=Count("passengers"))[
-                "total"
-            ]
+            obj.bookings.filter(
+                status__in=[
+                    Booking.BookingStatus.PAID,
+                    Booking.BookingStatus.PENDING_PAYMENT,
+                ]
+            )
+            .aggregate(total=Count("passengers"))
+            .get("total")
             or 0
         )
         return obj.bus.seat_count - reserved_seats
@@ -56,9 +62,16 @@ class TripSerializer(ModelSerializer):
         if validated_data.get("price") <= 0:
             raise serializers.ValidationError("Price must be positive.")
         bus = validated_data.get("bus")
-        if bus.seat_count < 10:
+        if bus.seat_count < 15:
             raise serializers.ValidationError(
-                f"Bus {bus.id} does not have enough seats , must have 10 seats at least"
+                {
+                    "bus": f"Bus {bus.id} does not have enough seats , must have 15 seats at least"
+                }
+            )
+        company = validated_data["company"]
+        if bus.company != company:
+            raise serializers.ValidationError(
+                {"bus": f"Bus {bus.id} does not belong to this Company"}
             )
         trip = Trip.objects.create(**validated_data)
         return trip

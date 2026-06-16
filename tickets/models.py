@@ -31,7 +31,7 @@ class Passenger(models.Model):
     def clean(self):
         conflicting_passengers = Passenger.objects.filter(
             trip=self.trip, seat=self.seat
-        ).exclude(id=self.id)
+        )
 
         if conflicting_passengers.exists():
             raise ValidationError({"seat": "This seat is already taken for this trip"})
@@ -48,6 +48,9 @@ class Passenger(models.Model):
     class Meta:
         db_table = "passenger"
         unique_together = ["trip", "seat"]
+        # constraints = models.UniqueConstraint(
+        #     fields=["trip", "seat"], name="unique_seat_and_trip"
+        # )
 
 
 @receiver(signal=post_save, sender=Passenger)

@@ -17,33 +17,39 @@ class PaymentSerializer(ModelSerializer):
     @transaction.atomic
     def create(self, validated_data):
         allowed_methods = ["fake_gateway"]
+
         booking = validated_data.pop("booking")
         method = validated_data.pop("method")
-        user = self.context["request"].user
+        if method not in allowed_methods:
+            raise serializers.ValidationError("Invalid payment method")
+        user = self.context.get("request").user
+
         payment_already_paid = Payment.objects.filter(
             booking=booking, status=Payment.PaymentStatus.SUCCESS
         ).exists()
-        booking.mark_expired_if_needed()
-        if method not in allowed_methods:
-            raise serializers.ValidationError("Invalid payment method")
-        if booking.user != user:
-            raise serializers.ValidationError("You don't own this booking")
         if payment_already_paid:
             raise serializers.ValidationError("Booking already paid")
+
+        if booking.user != user:
+            raise serializers.ValidationError("You don't own this booking")
         if booking.status == Booking.BookingStatus.CANCELED:
             raise serializers.ValidationError("Booking status is canceled")
+        booking.mark_expired_if_needed()
         if booking.status == Booking.BookingStatus.EXPIRED:
             raise serializers.ValidationError("Booking has expired")
         if booking.status != Booking.BookingStatus.PENDING_PAYMENT:
             raise serializers.ValidationError("Booking status isn't pending")
+
         passengers = booking.passengers.all()
         if not passengers.exists():
             raise serializers.ValidationError("No passenger found for this booking")
+        
         payment = Payment.objects.create(
             booking=booking, status=Payment.PaymentStatus.SUCCESS
         )
         booking.status = Booking.BookingStatus.PAID
         booking.save(update_fields=["status"])
+
         for passenger in passengers:
             Ticket.objects.create(booking=booking, passenger=passenger)
 

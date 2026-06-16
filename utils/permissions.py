@@ -11,15 +11,15 @@ class IsCompanyOwner(BasePermission):
         )
 
 
-class IsCompanyOwnerOrReadOnly(BasePermission):
-    def has_permission(self, request, view):
-        if request.method == "GET":
-            return True
-        else:
-            return IsCompanyOwner().has_permission(request=request, view=view)
-
-
 class IsUser(BasePermission):
     def has_permission(self, request, view):
         account: Account = request.user
         return getattr(account, "role", None) == Account.AccountRole.USER
+
+
+# class IsCompanyOwnerOrReadOnly(BasePermission):
+#     def has_permission(self, request, view):
+#         if request.method == "GET":
+#             return True
+#         else:
+#             return IsCompanyOwner().has_permission(request=request, view=view)

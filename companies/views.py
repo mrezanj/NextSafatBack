@@ -2,7 +2,7 @@ from rest_framework.viewsets import ModelViewSet
 from .serializers import BusSerializer
 from .models import Bus
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication  # type: ignore
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from utils.permissions import IsCompanyOwner
 from rest_framework.pagination import PageNumberPagination
 

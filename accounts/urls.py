@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView  # type: ignore
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     UserRegistrationViewset,
@@ -23,7 +23,7 @@ account_router.register(
 
 urlpatterns = [
     path("", include(account_router.urls)),
-    path("account/login", AccountLoginAPIView.as_view()),
+    path("account/login/", AccountLoginAPIView.as_view(), name="account-login"),
     path("accounts/me/", AccountProfileAPIView.as_view(), name="account-profile"),
     path("refresh-token/", TokenRefreshView.as_view(), name="refresh-token"),
 ]

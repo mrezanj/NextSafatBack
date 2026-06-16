@@ -2,8 +2,6 @@ from django.db import models
 from datetime import timedelta
 from django.utils import timezone
 
-# from background_task import background  # type: ignore
-
 
 class Booking(models.Model):
 
@@ -56,22 +54,9 @@ class Booking(models.Model):
             self.price_at_booking = self.trip.price
             self.expires_at = timezone.now() + timedelta(minutes=10)
         super().save(*args, **kwargs)
-        # if not self.pk:
-        #     expire_booking(self.id, schedule=timedelta(minutes=10))
 
     def __str__(self):
         return f"trip:{self.trip} status: {self.status}"
 
     class Meta:
         db_table = "booking"
-
-
-# @background
-# def expire_booking(booking_id):
-#     try:
-#         booking = Booking.objects.get(id=booking_id)
-#         if booking.status == Booking.BookingStatus.PENDING_PAYMENT:
-#             booking.status = Booking.BookingStatus.EXPIRED
-#             booking.save(update_fields=["status"])
-#     except Booking.DoesNotExist:
-#         pass

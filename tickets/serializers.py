@@ -23,7 +23,7 @@ class TripNestedSerializer(serializers.ModelSerializer):
 
 class TicketSerializer(ModelSerializer):
     booking_id = serializers.IntegerField(source="booking.id", read_only=True)
-    passenger = PassengerNestedSerializer(source="passenger", read_only=True)
+    passenger = PassengerNestedSerializer(read_only=True)
     trip = TripNestedSerializer(source="booking.trip", read_only=True)
     seat_number = serializers.IntegerField(
         source="passenger.seat.seat_number", read_only=True

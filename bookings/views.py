@@ -3,11 +3,11 @@ from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, ListMode
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework_simplejwt.authentication import JWTAuthentication  # type: ignore
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from .models import Booking
 from .serializers import BookingSerializer
-from utils.permissions import IsUser
+from utils.permissions import IsUser, IsCompanyOwner
 from django.db.models import Count, Q, Sum
 
 
@@ -35,19 +35,20 @@ class BookingViewset(
     def get_permissions(self):
         if self.action == "create":
             return [IsAuthenticated(), IsUser()]
+        elif self.action == "stats":
+            return [IsAuthenticated(), IsCompanyOwner()]
         elif self.action in ["update", "partial_update", "destroy"]:
             self.permission_denied(
                 self.request,
                 message="Direct updates not allowed. Use /cancel/ endpoints to change status only",
             )
-
         return super().get_permissions()
 
     def list(self, request):
         queryset = self.get_queryset().order_by("-created_at")
-        status = request.query_params.get("status")
-        if status:
-            queryset = queryset.filter(status=status)
+        arrived_status = request.query_params.get("status")
+        if arrived_status:
+            queryset = queryset.filter(status=arrived_status)
         from_date = request.query_params.get("from_date")
         to_date = request.query_params.get("to_date")
         if from_date:
@@ -59,18 +60,18 @@ class BookingViewset(
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        return Response(data=serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["patch"])
     def cancel(self, request, pk=None):
         booking = self.get_object()
-        booking.mark_expired_if_needed()
         if booking.status == Booking.BookingStatus.PAID:
             return Response(
                 {"error": "Cannot cancel a paid booking. Please contact support."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        booking.mark_expired_if_needed()
         if booking.status == Booking.BookingStatus.EXPIRED:
             return Response(
                 {"error": "Cannot cancel an expired booking"},
@@ -94,7 +95,7 @@ class BookingViewset(
                 "cancelled_by": (
                     "user"
                     if request.user.role == request.user.AccountRole.USER
-                    else "company_owner"
+                    else "company-owner"
                 ),
             },
             status=status.HTTP_200_OK,
@@ -106,7 +107,7 @@ class BookingViewset(
         for booking in bookings:
             booking.mark_expired_if_needed()
 
-        statistics = bookings.aggregate(
+        statistics: dict = bookings.aggregate(
             total_bookings=Count("id"),
             paid_bookings=Count("id", filter=Q(status=Booking.BookingStatus.PAID)),
             pending_bookings=Count(

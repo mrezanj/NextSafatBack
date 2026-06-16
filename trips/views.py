@@ -5,10 +5,9 @@ from rest_framework.request import Request
 from rest_framework import status
 from .serializers import TripSerializer
 from .models import Trip
-from rest_framework_simplejwt.authentication import JWTAuthentication  # type: ignore
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.permissions import AllowAny
-from utils.permissions import IsCompanyOwnerOrReadOnly
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from utils.permissions import IsCompanyOwner
 from rest_framework.pagination import PageNumberPagination
 from bookings.models import Booking
 
@@ -35,10 +34,10 @@ class TripViewset(ModelViewSet):
     def get_permissions(self):
         if self.action in ["list", "retrieve", "search", "seats"]:
             return [AllowAny()]
-        return [IsAuthenticated(), IsCompanyOwnerOrReadOnly()]
+        return [IsAuthenticated(), IsCompanyOwner()]
 
     def perform_create(self, serializer):
-        serializer.save(company=self.request.user.company.id)
+        serializer.save(company=self.request.user.company)
 
     @action(detail=False, methods=["get"])
     def search(self, request: Request):
@@ -64,7 +63,7 @@ class TripViewset(ModelViewSet):
     def seats(self, request: Request, pk=None):
         trip = self.get_object()
         trip_seats = trip.bus.seats.all()
-        seats_data = []
+        seats_data: list = []
         for seat in trip_seats:
             seats_data.append(
                 {"id": seat.id, "number": seat.number, "status": "available"}

@@ -37,7 +37,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class OwnerRegistrationSerializer(serializers.ModelSerializer):
-    company_name = serializers.CharField(write_only=True)
+    company_name = serializers.CharField(write_only=True, required=True)
     password = serializers.CharField(write_only=True, required=True)
 
     class Meta:
@@ -63,15 +63,11 @@ class OwnerRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"email": "This email has already registered"}
             )
-        if not company_name:
+
+        if Company.objects.filter(name=company_name).exists():
             raise serializers.ValidationError(
-                {"company_name": "company name must be entered"}
+                {"company_name": "company name must be unqiue"}
             )
-        else:
-            if Company.objects.filter(name=company_name).exists():
-                raise serializers.ValidationError(
-                    {"company_name": "company name must be unqiue"}
-                )
 
         return attrs
 
@@ -99,10 +95,6 @@ class OwnerRegistrationSerializer(serializers.ModelSerializer):
 class AccountLoginSerializer(serializers.Serializer):
     phone = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
-    id = serializers.IntegerField(read_only=True)
-    first_name = serializers.CharField(read_only=True)
-    last_name = serializers.CharField(read_only=True)
-    role = serializers.CharField(read_only=True)
 
     def validate(self, attrs):
         phone = attrs.get("phone")
@@ -110,12 +102,7 @@ class AccountLoginSerializer(serializers.Serializer):
         account = Account.objects.filter(phone=phone).first()
         if not account or not account.is_active or not account.check_password(password):
             raise serializers.ValidationError("Invalid credentials")
-        attrs["id"] = account.id
-        attrs["first_name"] = account.first_name
-        attrs["last_name"] = account.last_name
-        attrs["role"] = account.role
         attrs["account"] = account
-
         return attrs
 
 
